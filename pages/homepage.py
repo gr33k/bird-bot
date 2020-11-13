@@ -346,6 +346,7 @@ class TaskTab(QtWidgets.QWidget):
             self.running = False
             self.start_btn.raise_()
             self.browser_label.show()
+            self.open_browser_automatic()
             logger.alt(self.task_id,msg["msg"])
             loop = QtCore.QEventLoop()
             QtCore.QTimer.singleShot(1000, loop.quit)
@@ -464,6 +465,16 @@ class TaskTab(QtWidgets.QWidget):
             self.browser_cookies
         )
         self.browser_thread.start()
+
+    def open_browser_automatic(self):
+        self.browser_thread = BrowserThread()
+        self.browser_thread.set_data(
+            self.browser_url,
+            self.browser_cookies
+        )
+        self.browser_thread.start()
+
+
 class TaskThread(QtCore.QThread):
     status_signal = QtCore.pyqtSignal("PyQt_PyObject")
     image_signal = QtCore.pyqtSignal("PyQt_PyObject")
