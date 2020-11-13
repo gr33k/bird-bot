@@ -11,6 +11,7 @@ Phoenix Bot is an auto-checkout bot that currently supports Walmart and Best buy
 Setup:
 
 1: Open Windows Powershell
+
 2: Paste below code line by line
 
 git clone https://github.com/gr33k/bird-bot.git
