@@ -25,7 +25,7 @@ class Walmart:
             "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
             "cache-control": "max-age=0",
             "upgrade-insecure-requests": "1",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36"
         }
         image_found = False
         sproduct_image = ""
@@ -40,7 +40,6 @@ class Walmart:
                         self.image_signal.emit(product_image)
                         image_found = True
                     price = float(doc.xpath('//span[@itemprop="price"]/@content')[0])
-                    # print(r.text)
                     if re.search("Add to Cart", r.text, re.IGNORECASE):
                         if self.max_price !="":
                             if float(self.max_price) < price:
@@ -68,7 +67,7 @@ class Walmart:
             "content-type": "application/json",
             "origin": "https://www.walmart.com",
             "referer": self.product,
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36"
         }
         body = {"offerId":offer_id,"quantity":1}
         while True:
@@ -93,7 +92,7 @@ class Walmart:
             "content-type": "application/json",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36",
             "wm_vertical_id": "0"
         }
         profile = self.profile
@@ -128,7 +127,7 @@ class Walmart:
             "content-type": "application/json",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36",
             "wm_vertical_id": "0"
         }
         body = {"groups":[{"fulfillmentOption":fulfillment_option,"itemIds":[item_id],"shipMethod":ship_method}]}
@@ -158,7 +157,7 @@ class Walmart:
             "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36",
             "wm_vertical_id": "0"
         }
         profile = self.profile
@@ -203,7 +202,7 @@ class Walmart:
             "Connection": "keep-alive",
             "Host": "securedataweb.walmart.com",
             "Referer": "https://www.walmart.com/",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36"
         }
         profile = self.profile
         while True:
@@ -234,7 +233,7 @@ class Walmart:
             "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36"
         }
         profile = self.profile
         body = {
@@ -281,7 +280,7 @@ class Walmart:
             "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36",
             "wm_vertical_id": "0"
         }
         profile = self.profile
@@ -337,7 +336,7 @@ class Walmart:
             "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.22 Safari/537.36",
             "wm_vertical_id": "0"
         }
         while True:
