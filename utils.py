@@ -12,13 +12,13 @@ from webhook import DiscordWebhook, DiscordEmbed
 from chromedriver_py import binary_path as driver_path
 import json, platform, darkdetect, random, settings, threading, hashlib, base64
 normal_color = Fore.CYAN
-e_key = "YnJ1aG1vbWVudA==".encode()
+e_key = "YnJ1aG1vbWVudA==".encode() #TODO: this needs to become an app setting the user sets. On app start could just generate a key randomly too. 
 BLOCK_SIZE=16
 if platform.system() == "Windows":
     init(convert=True)
 else:
     init()
-print(normal_color + "Welcome To Bird Bot")
+print(normal_color + "Welcome To Pheonix Bot")
 
 class BirdLogger:
     def ts(self):
@@ -31,6 +31,7 @@ class BirdLogger:
         print(Fore.RED + "[{}][TASK {}] {}".format(self.ts(),task_id,msg))
     def success(self,task_id,msg):
         print(Fore.GREEN + "[{}][TASK {}] {}".format(self.ts(),task_id,msg))
+
 class Encryption:
     def encrypt(self,msg):
         IV = Random.new().read(BLOCK_SIZE)
@@ -43,15 +44,18 @@ class Encryption:
         return aes.decrypt(msg[BLOCK_SIZE:])
     def trans(self,key):
         return hashlib.md5(key).digest()
+
 def return_data(path):
     with open(path,"r") as file:
         data = json.load(file)
     file.close()
     return data
+
 def write_data(path,data):
     with open(path, "w") as file:
         json.dump(data, file)
     file.close()
+
 def get_profile(profile_name):
     profiles = return_data("./data/profiles.json")
     for p in profiles:
@@ -62,6 +66,7 @@ def get_profile(profile_name):
                 pass
             return p
     return None
+
 def get_proxy(list_name):
     if list_name == "Proxy List" or list_name == "None":
         return False
@@ -70,6 +75,7 @@ def get_proxy(list_name):
         if proxy_list["list_name"] == list_name:
             return format_proxy(random.choice(proxy_list["proxies"].splitlines()))
     return None
+
 def format_proxy(proxy):
     try:
         proxy_parts = proxy.split(":")
@@ -80,6 +86,7 @@ def format_proxy(proxy):
         }
     except IndexError:
         return {"http": "http://" + proxy, "https": "https://" + proxy}
+
 def send_webhook(webhook_type,site,profile,task_id,image_url):
     if settings.webhook !="":
         webhook = DiscordWebhook(url=settings.webhook, username="Bird Bot", avatar_url="https://i.imgur.com/fy26LbM.png")

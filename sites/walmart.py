@@ -1,6 +1,12 @@
 from sites.walmart_encryption import walmart_encryption as w_e
 from utils import send_webhook
-import urllib,requests,time,lxml.html,json,sys,settings,re
+import urllib,requests,time,lxml.html,json,sys,settings
+from selenium import webdriver
+from webdriver_manager.chrome import ChromeDriverManager
+
+# SET THIS SO YOU DONT BUY STUFF
+DONT_BUY = True # TODO: make this a task option?
+
 
 class Walmart:
     def __init__(self,task_id,status_signal,image_signal,product,profile,proxy,monitor_delay,error_delay,max_price):
@@ -10,7 +16,10 @@ class Walmart:
             self.session.proxies.update(proxy)
         self.status_signal.emit({"msg":"Starting","status":"normal"})
         self.product_image, offer_id = self.monitor()
-        self.atc(offer_id)
+        did_add = False
+        while did_add is False:
+            did_add = self.atc(offer_id)
+
         item_id, fulfillment_option, ship_method = self.check_cart_items()
         self.submit_shipping_method(item_id, fulfillment_option, ship_method)
         self.submit_shipping_address()
@@ -25,7 +34,7 @@ class Walmart:
             "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
             "cache-control": "max-age=0",
             "upgrade-insecure-requests": "1",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36"
         }
         image_found = False
         sproduct_image = ""
@@ -33,15 +42,21 @@ class Walmart:
             self.status_signal.emit({"msg":"Loading Product Page","status":"normal"})
             try:
                 r = self.session.get(self.product,headers=headers)
+                print(r.status_code)
                 if r.status_code == 200:
+                    # check for captcha page
+                    if self.is_captcha(r.text):
+                        self.status_signal.emit({"msg":"CAPTCHA - Opening Product Page","status":"error"})
+                        self.handle_captcha(self.product)
+                        return
+
                     doc = lxml.html.fromstring(r.text)
                     if not image_found:
                         product_image = doc.xpath('//meta[@property="og:image"]/@content')[0]
                         self.image_signal.emit(product_image)
                         image_found = True
                     price = float(doc.xpath('//span[@itemprop="price"]/@content')[0])
-                    # print(r.text)
-                    if re.search("Add to Cart", r.text, re.IGNORECASE):
+                    if "add to cart" in r.text.lower():
                         if self.max_price !="":
                             if float(self.max_price) < price:
                                 self.status_signal.emit({"msg":"Waiting For Price Restock","status":"normal"})
@@ -57,10 +72,12 @@ class Walmart:
                     self.status_signal.emit({"msg":"Product Not Found","status":"normal"})
                     time.sleep(self.monitor_delay)
             except Exception as e:
+                print(r.text)
                 self.status_signal.emit({"msg":"Error Loading Product Page (line {} {} {})".format(sys.exc_info()[-1].tb_lineno, type(e).__name__, e),"status":"error"})
                 time.sleep(self.error_delay)
     
     def atc(self,offer_id):
+
         headers={
             "accept": "application/json",
             "accept-encoding": "gzip, deflate, br",
@@ -68,40 +85,68 @@ class Walmart:
             "content-type": "application/json",
             "origin": "https://www.walmart.com",
             "referer": self.product,
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36",
+            "wm_offer_id": offer_id
         }
-        body = {"offerId":offer_id,"quantity":1}
+        body = {"offerId":offer_id,"quantity":1, "location":{"postalCode":self.profile["shipping_zipcode"],"city":self.profile["shipping_city"],"state":self.profile["shipping_state"],"isZipLocated":True},"shipMethodDefaultRule":"SHIP_RULE_1"}
+
+
         while True:
             self.status_signal.emit({"msg":"Adding To Cart","status":"normal"})
             try:
                 r = self.session.post("https://www.walmart.com/api/v3/cart/guest/:CID/items",json=body,headers=headers)
+                print(r.status_code)
+
+                # check for captcha page
+                if self.is_captcha(r.text):
+                    self.status_signal.emit({"msg":"Opening CAPTCHA","status":"error"})
+                    self.handle_captcha(self.product)
+                    return False
+
                 if r.status_code == 201 and json.loads(r.text)["checkoutable"] == True:
                     self.status_signal.emit({"msg":"Added To Cart","status":"carted"})
-                    return
+                    return True
                 else:
+                    self.handle_captca("https://www.walmart.com/cart")
                     self.status_signal.emit({"msg":"Error Adding To Cart","status":"error"})
                     time.sleep(self.error_delay) 
+                    return False
             except Exception as e:
+                print(r.text)
                 self.status_signal.emit({"msg":"Error Adding To Cart (line {} {} {})".format(sys.exc_info()[-1].tb_lineno, type(e).__name__, e),"status":"error"})
                 time.sleep(self.error_delay)
+                return False
 
     def check_cart_items(self):
         headers = {
             "accept": "application/json, text/javascript, */*; q=0.01",
             "accept-encoding": "gzip, deflate, br",
-            "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+            "accept-language": "en-US,en;q=0.9",
             "content-type": "application/json",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
-            "wm_vertical_id": "0"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36",
+            "wm_vertical_id": "0",
+            "wm_cvv_in_session": "true",
         }
+        for c in self.session.cookies:
+            print(c)
+            
+
         profile = self.profile
-        body = {"postalCode":profile["shipping_zipcode"],"city":profile["shipping_city"],"state":profile["shipping_state"],"isZipLocated":True,"crt:CRT":"","customerId:CID":"","customerType:type":"","affiliateInfo:com.wm.reflector":""}
+        body = {"postalCode":profile["shipping_zipcode"],"city":profile["shipping_city"],"state":profile["shipping_state"],"isZipLocated":True,"crt:CRT":"","customerId:CID":"","customerType:type":"","affiliateInfo:com.wm.reflector":"","storeList": []}
+        print(body)
+        
         while True:
             self.status_signal.emit({"msg":"Loading Cart Items","status":"normal"})
             try:
+                # self.handle_captcha("https://www.walmart.com/checkout") 
+
+
                 r = self.session.post("https://www.walmart.com/api/checkout/v3/contract?page=CHECKOUT_VIEW",json=body,headers=headers)
+                print(r.status_code)
+                print(r.text) # this sometimes returns json data related to loading a captcha.js file so that could be intercepted when requests fail
+
                 if r.status_code == 201:
                     r = json.loads(r.text)["items"][0]
                     item_id = r["id"]
@@ -114,6 +159,8 @@ class Walmart:
                         self.status_signal.emit({"msg":"Waiting For Restock","status":"normal"})
                         time.sleep(self.monitor_delay)
                     else:
+                        if self.is_captcha(r.text):
+                            self.handle_captcha("https://www.walmart.com/checkout")
                         self.status_signal.emit({"msg":"Error Loading Cart Items, Got Response: "+str(r.text),"status":"error"})
                         time.sleep(self.error_delay) 
             except Exception as e:
@@ -128,7 +175,7 @@ class Walmart:
             "content-type": "application/json",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36",
             "wm_vertical_id": "0"
         }
         body = {"groups":[{"fulfillmentOption":fulfillment_option,"itemIds":[item_id],"shipMethod":ship_method}]}
@@ -158,7 +205,7 @@ class Walmart:
             "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36",
             "wm_vertical_id": "0"
         }
         profile = self.profile
@@ -203,7 +250,7 @@ class Walmart:
             "Connection": "keep-alive",
             "Host": "securedataweb.walmart.com",
             "Referer": "https://www.walmart.com/",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36"
         }
         profile = self.profile
         while True:
@@ -229,13 +276,13 @@ class Walmart:
         headers = {
             "accept": "application/json",
             "accept-encoding": "gzip, deflate, br",
-            "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+            "accept-language": "en-US,en;q=0.9",
             "content-type": "application/json",
-            "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36"
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36"
         }
+            # "inkiru_precedence": "false",
         profile = self.profile
         body = {
             "encryptedPan": card_data[0],
@@ -260,6 +307,7 @@ class Walmart:
             self.status_signal.emit({"msg":"Submitting Payment","status":"normal"})
             try:
                 r = self.session.post("https://www.walmart.com/api/checkout-customer/:CID/credit-card",json=body,headers=headers)
+                print(r.text)
                 if r.status_code == 200:
                     pi_hash = json.loads(r.text)["piHash"]
                     self.status_signal.emit({"msg":"Submitted Payment","status":"normal"})
@@ -278,12 +326,12 @@ class Walmart:
             "accept-encoding": "gzip, deflate, br",
             "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
             "content-type": "application/json",
-            "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36",
             "wm_vertical_id": "0"
         }
+
         profile = self.profile
         card_data,PIE_key_id,PIE_phase = self.get_PIE()
         body = {
@@ -332,18 +380,27 @@ class Walmart:
         headers = {
             "accept": "application/json, text/javascript, */*; q=0.01",
             "accept-encoding": "gzip, deflate, br",
-            "accept-language": "en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7",
+            "accept-language": "en-US,en;q=0.9",
             "content-type": "application/json",
-            "inkiru_precedence": "false",
             "origin": "https://www.walmart.com",
             "referer": "https://www.walmart.com/checkout/",
-            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/70.0.3538.77 Safari/537.36",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.193 Safari/537.36",
             "wm_vertical_id": "0"
         }
+        
+        if DONT_BUY is True:
+            # TODO: this used to open the page up with everything filled out but walmart may have changed how that works...
+            self.handle_captcha("https://www.walmart.com/checkout/#/payment") # OPEN BROWSER TO SEE IF SHIT WORKED
+            self.check_browser()  
+            return               # TODO: HARD STOP TO STOP BUYING SHIT
+
         while True:
             self.status_signal.emit({"msg":"Submitting Order","status":"alt"})
             try:
                 r = self.session.put("https://www.walmart.com/api/checkout/v3/contract/:PCID/order",json={},headers=headers)
+                print('-------')
+                print(r.status_code)
+                print(r.text)
                 try:
                     json.loads(r.text)["order"]
                     self.status_signal.emit({"msg":"Order Placed","status":"success"})
@@ -351,8 +408,12 @@ class Walmart:
                     return
                 except:
                     self.status_signal.emit({"msg":"Payment Failed","status":"error"})
+                    
+                    # open the page for checkout if failed to auto submit
+                    self.handle_captcha("https://www.walmart.com/checkout/#/payment")
                     if self.check_browser():
                         return
+
                     send_webhook("PF","Walmart",self.profile["profile_name"],self.task_id,self.product_image)
                     return
             except Exception as e:
@@ -365,3 +426,30 @@ class Walmart:
             send_webhook("B","Walmart",self.profile["profile_name"],self.task_id,self.product_image)
             return True
         return False
+
+    def handle_captcha(self, url_to_open):
+        # this opens up chrome browser to get prompted with captcha
+        browser = webdriver.Chrome(ChromeDriverManager().install()) # I used ChromeDriverManager to not worry about what chrome driver i had installed
+        browser.get("https://www.walmart.com")
+
+        # pass current session cookies to browser before loading url
+        for c in self.session.cookies:
+            browser.add_cookie({
+                'name' : c.name,
+                'value' : c.value,
+                'domain': c.domain,
+                'path': c.path
+            })
+
+        browser.get(url_to_open)
+
+        # pass the cookies back to the session to continue process
+        # TODO: this should be a UI popup instead of from the console...
+        input("Press Enter after page loads and interact in the page. Complete the Captcha first if prompted ...")
+        
+        for c in browser.get_cookies():
+            if c['name'] not in [x.name for x in self.session.cookies]:
+                self.session.cookies.set(c['name'], c['value'], path=c['path'], domain=c['domain'])
+
+    def is_captcha(self, text):
+        return "captchajs" in text or "captcha.js" in text
