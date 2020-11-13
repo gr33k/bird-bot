@@ -12,11 +12,17 @@ Setup:
 
 1: Open Windows Powershell
 2: Paste below code line by line
+
 git clone https://github.com/gr33k/bird-bot.git
+
 cd bird-bot
+
 git checkout janky-fix
+
 python -m venv ./env
+
 ./env/Scripts/activate
+
 pip install -r requirements.txt
 
 3: Type: python app.py to launch Phoenix Bot.
